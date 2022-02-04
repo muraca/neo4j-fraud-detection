@@ -22,7 +22,7 @@ def create_transaction(tx, PATH):
             "MERGE (c:Customer {customer_id : row.customer_id}) " +
             "MERGE (t:Terminal {terminal_id : row.terminal_id}) " +
             "MERGE (c)-[tx:TRANSACTION{transaction_id : row.transaction_id}]->(t) " +
-            "SET tx += {tx_datetime : datetime(row.tx_datetime), tx_amount : row.tx_amount, " +
+            "SET tx += {tx_datetime : datetime({epochSeconds: toInteger(row.tx_datetime)}), tx_amount : row.tx_amount, " +
             "tx_fraud : row.tx_fraud, period_of_the_day : row.period_of_the_day, " +
             "kind_of_products : tx.kind_of_products}")
             
