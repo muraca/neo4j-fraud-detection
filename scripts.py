@@ -1,7 +1,7 @@
 from neo4j import GraphDatabase
 
-uri = "http://localhost:7474"
-driver = GraphDatabase.driver(uri, auth=("neo4j", ""))
+uri = "bolt://localhost:7687"
+driver = GraphDatabase.driver(uri, auth=("neo4j", "ciao"))
 
 def drop_content(tx):
     tx.run("MATCH (n) DETACH DELETE n")
@@ -21,13 +21,15 @@ def create_transaction(tx, PATH):
     tx.run ("LOAD CSV WITH HEADERS FROM \"" + PATH + "\" AS row " + 
             "MERGE (c:Customer {customer_id : row.customer_id}) " +
             "MERGE (t:Terminal {terminal_id : row.terminal_id}) " +
-            "MERGE (c)-[tx:TRANSACTION {transaction_id : row.transaction_id}]->(t) " +
+            "MERGE (c)-[tx:TRANSACTION{transaction_id : row.transaction_id}]->(t) " +
             "SET tx += {tx_datetime : datetime(row.tx_datetime), tx_amount : row.tx_amount, " +
-            "tx_fraud : row.tx_fraud, period_of_the_day : row.period_of_the_day " +
+            "tx_fraud : row.tx_fraud, period_of_the_day : row.period_of_the_day, " +
             "kind_of_products : tx.kind_of_products}")
             
 s = "1"
-file_path = "file:///datasets/" + s + "/"
+# path dalla root, altrimenti Neo4J non riesce a leggere
+from_root = "/Users/rosario/Documents/Uni/Corsi/New%20Generation%20DBMS/neo4j-fraud-detection/"
+file_path = "file:///" + from_root + "datasets/" + s + "/"
 with driver.session() as session:
     session.write_transaction(drop_content)
     session.write_transaction(create_customer, file_path + "customers-" + s + ".csv")
