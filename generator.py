@@ -4,10 +4,6 @@ from datetime import datetime
 import os
 import csv
 
-PERIODS = ['morning', 'afternoon', 'evening', 'night']
-KINDS = ['high-tech', 'food', 'clothing', 'consumable', 'other']
-
-
 def generate_customer_profiles_table(n_customers, random_state=0):
     
     np.random.seed(random_state)
@@ -72,11 +68,7 @@ def generate_transactions_table(n_transactions, customers, terminals, start_date
         
         amount=np.round(amount,decimals=2)
 
-        fraud = random.randint(0,1) == 1
-
-        # period_of_the_day = PERIODS[random.randint(0,len(PERIODS)-1)]
-        # kind_of_products = KINDS[random.randint(0,len(KINDS)-1)]
-        
+        fraud = random.randint(0,1) == 1        
         
         customer_transactions.append([n, time_tx + day * 86400 + int(start_date.timestamp()), customer_id, terminal_id, amount, fraud])
 
@@ -111,7 +103,7 @@ for size in sizes:
 
     with open(tr, 'w', newline='') as csvfile:
         w = csv.writer(csvfile, delimiter=',')
-        w.writerow(['transaction_id', 'tx_datetime', 'customer_id', 'terminal_id', 'amount', 'fraud'])
+        w.writerow(['transaction_id', 'tx_datetime', 'customer_id', 'terminal_id', 'tx_amount', 'tx_fraud'])
         w.writerows(transactions)
 
     size = os.path.getsize(cs) + os.path.getsize(ts) + os.path.getsize(tr)
