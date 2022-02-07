@@ -96,47 +96,64 @@ from_root = str(pathlib.Path(__file__).parent.resolve())
 file_path = "file://" + from_root + "/datasets/" + dataset + "/"
 
 with driver.session() as session:
-    session.write_transaction(drop_content)
-    session.write_transaction(create_customer, file_path + "customers-" + dataset + ".csv")
-    session.write_transaction(create_terminal, file_path + "terminals-" + dataset + ".csv")
-    session.write_transaction(create_transaction, file_path + "transactions-" + dataset + ".csv")
+    while session.run(IS_CONTENT).value(default=False):
+        session.run(DROP_CONTENT)
+
+    session.run(CUSTOMER_INDEX)
+    session.run(TERMINAL_INDEX)
+
+    session.run(load_customers(file_path + "customers-" + dataset + ".csv"))
+    session.run(load_terminals(file_path + "terminals-" + dataset + ".csv"))
+    session.run(load_transactions(file_path + "transactions-" + dataset + ".csv"))
+
     print("write transaction " + "failed" if session._state_failed else "completed")
 
 driver.close()
 ```
 
-The first step is the deletion of the data contained in the Neo4j database, using the following method:
+The first step is the deletion of the data contained in the Neo4j database, using the following queries:
 ``` python
-def drop_content(tx):
-    tx.run("MATCH (n) DETACH DELETE n")
+IS_CONTENT = "MATCH (n) RETURN true LIMIT 1"
+DROP_CONTENT = "MATCH (n) CALL { WITH n DETACH DELETE n } IN TRANSACTIONS OF 10000 ROWS"
 ```
-*tx* is the transaction object passed by the Neo4j session.
 
+Indexes are created using the following 
 
 Then the *Customer* and *Terminal* nodes are created by loading the CSV files on Neo4j using Cypher's constructs.
 ``` python
-def create_customer(tx, PATH):
-    tx.run ("LOAD CSV WITH HEADERS FROM \"" + PATH + "\" AS row " + 
-            "CREATE (c:Customer {customer_id : row.customer_id, " +
-            "x_customer_id : row.x_customer_id, y_customer_id : row.y_customer_id, " +
-            "mean_amount : row.mean_amount, std_amount : row.std_amount, " + 
-            "mean_nb_tx_per_day : row.mean_nb_tx_per_day })")
+def load_customers(PATH):
+    return (
+            "USING PERIODIC COMMIT 1000 " +
+            "LOAD CSV WITH HEADERS FROM \"" + PATH + "\" AS row " + 
+            "CREATE (c:Customer {customer_id : toInteger(row.customer_id), " +
+            "x_customer_id : toFloat(row.x_customer_id)," + 
+            "y_customer_id : toFloat(row.y_customer_id), " +
+            "mean_amount : toFloat(row.mean_amount), " + 
+            "std_amount : toFloat(row.std_amount), " + 
+            "mean_nb_tx_per_day : toFloat(row.mean_nb_tx_per_day) })")
 
-def create_terminal(tx, PATH):
-    tx.run ("LOAD CSV WITH HEADERS FROM \"" + PATH + "\" AS row " + 
-            "CREATE (t:Terminal { terminal_id : row.terminal_id, " +
-            "x_terminal_id : row.x_terminal_id, y_terminal_id : row.y_terminal_id })")
+def load_terminals(PATH):
+    return (
+            "USING PERIODIC COMMIT 1000 " +
+            "LOAD CSV WITH HEADERS FROM \"" + PATH + "\" AS row " + 
+            "CREATE (t:Terminal { terminal_id : toInteger(row.terminal_id), " +
+            "x_terminal_id : toFloat(row.x_terminal_id), " +
+            "y_terminal_id : toFloat(row.y_terminal_id) })")
 ```
 
 Finally, the *Transaction* edges are created by matching the respective *Customer* and *Terminal* nodes involved in the operation.
 ``` python
-def create_transaction(tx, PATH):
-    tx.run ("LOAD CSV WITH HEADERS FROM \"" + PATH + "\" AS row " +  
-            "MATCH (c:Customer {customer_id : row.customer_id}) " +
-            ", (t:Terminal {terminal_id : row.terminal_id}) " +
-            "CREATE (c)-[tx:TRANSACTION { transaction_id : row.transaction_id, " +
-            "tx_amount : row.tx_amount, tx_fraud : row.tx_fraud, " +    
-            "tx_datetime : datetime({epochSeconds: toInteger(row.tx_datetime)}) }]->(t) ")
+def load_transactions(PATH):
+    return (
+            "USING PERIODIC COMMIT 1000 " +
+            "LOAD CSV WITH HEADERS FROM \"" + PATH + "\" AS row " +  
+            "MATCH (c:Customer {customer_id : toInteger(row.customer_id)}), " +
+            "(t:Terminal {terminal_id : toInteger(row.terminal_id)}) " +
+            "CREATE (c)-[tx:TRANSACTION { " + 
+            "transaction_id : toInteger(row.transaction_id), " +
+            "tx_datetime : datetime({epochSeconds: toInteger(row.tx_datetime)}), " +
+            "tx_amount : toFloat(row.tx_amount), " + 
+            "tx_fraud : toFloat(row.tx_fraud) }]->(t) ")
 ```
 
 
@@ -151,12 +168,10 @@ RETURN c.customer_id, t.tx_datetime.day, SUM (t.tx_amount)
 ORDER BY c.customer_id, t.tx_datetime.day
 ```
 
-2.  For each terminal identify the possible fraudulent transactions.  
+2.  For each terminal identify the possible fraudulent transactions *occurred in the current month*.  
     The fraudulent transactions are those whose import is higher
     than 50% of the import of the transactions 
     executed on the same terminal in the last month.
-
-    #TODO ask teacher
 
     For this request, two different Cypher queries are needed.
     The results of the first query are used by the Python script to call the second one.
@@ -263,6 +278,33 @@ ORDER BY c.customer_id, t.tx_datetime.day
     ```
 # 6. Performances discussion
 
+We chose to use the periodic commit because of the large amount of rows to load from the CSV files. This reduces the memory overhead of the transaction.
 
+If no index is created, the loading of 1000 *Transactions* from a CSV would take 128 seconds on average, for the 50 MB dataset, with 200000 *Customers* and 200000 *Terminals*.  
+This means an average time of 64000 seconds, almost 18 hours, for the loading of the 500000 transactions of the 50 MB dataset.  
+This happens because of the matches that the query does before the creation of *Transaction*.
+The creation of indexes on *Customer*.*customer_id* and *Terminal*.*terminal_id* improve the performances drastically: the loading of 1000 *Transactions* takes on average 95 milliseconds, and the whole collection of 500000 *Transactions* is loaded on average in 34 seconds.
 
-### TODO change file names and create queries.py
+## Timings with indexes
+### **Customer**
+dataset|size|quantity|average loading time
+-------|----|--------|---
+ *1*   | a  | 200000 | 7.0s
+ *2*   | a  | 400000 | 13.8s
+ *4*   | a  | 800000 | 27.3s
+
+### **Terminal**
+dataset|size|quantity|average loading time
+-------|----|--------|---
+ *1*   | a  | 200000 | 5.9s
+ *2*   | a  | 400000 | 11.6s
+ *4*   | a  | 800000 | 23.0s
+
+### **Transaction**
+dataset|size|quantity|average loading time
+-------|----|--------|---
+ *1*   | a  | 500000 | 33.9s
+ *2*   | a  | 1000000| 68.5s
+ *4*   | a  | 2000000| 139.6s
+
+### TODO cambiare metodi di loading nel cap.4

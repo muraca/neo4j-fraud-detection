@@ -1,9 +1,11 @@
 from neo4j import GraphDatabase
 import pathlib
-from time import time
 
 IS_CONTENT = "MATCH (n) RETURN true LIMIT 1"
 DROP_CONTENT = "MATCH (n) CALL { WITH n DETACH DELETE n } IN TRANSACTIONS OF 10000 ROWS"
+
+CUSTOMER_INDEX = "CREATE INDEX cust_id IF NOT EXISTS FOR (c:Customer) ON (c.customer_id) "
+TERMINAL_INDEX = "CREATE INDEX term_id IF NOT EXISTS FOR (t:Terminal) ON (t.terminal_id) "
 
 def load_customers(PATH):
     return (
@@ -28,7 +30,6 @@ def load_transactions(PATH):
     return (
             "USING PERIODIC COMMIT 1000 " +
             "LOAD CSV WITH HEADERS FROM \"" + PATH + "\" AS row " +  
-    #        "WITH row LIMIT 1000 " +
             "MATCH (c:Customer {customer_id : toInteger(row.customer_id)}), " +
             "(t:Terminal {terminal_id : toInteger(row.terminal_id)}) " +
             "CREATE (c)-[tx:TRANSACTION { " + 
@@ -49,23 +50,12 @@ with driver.session() as session:
     while session.run(IS_CONTENT).value(default=False):
         session.run(DROP_CONTENT)
 
-    session.run("CREATE INDEX cust_id IF NOT EXISTS FOR (c:Customer) ON (c.customer_id) ")
-    session.run("CREATE INDEX term_id IF NOT EXISTS FOR (t:Terminal) ON (t.terminal_id) ")
+    session.run(CUSTOMER_INDEX)
+    session.run(TERMINAL_INDEX)
 
-    s = time()
     session.run(load_customers(file_path + "customers-" + dataset + ".csv"))
-    e = time()
-    print("customers time: " + str(e - s) + " seconds")
-
-    s = time()
     session.run(load_terminals(file_path + "terminals-" + dataset + ".csv"))
-    e = time()
-    print("terminals time: " + str(e - s) + " seconds")
-
-    s = time()
     session.run(load_transactions(file_path + "transactions-" + dataset + ".csv"))
-    e = time()
-    print("transactions time: " + str(e - s) + " seconds")
 
     print("write transaction " + "failed" if session._state_failed else "completed")
 
