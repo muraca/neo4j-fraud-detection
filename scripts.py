@@ -1,31 +1,41 @@
 from neo4j import GraphDatabase
 import pathlib
+from time import time
 
-def drop_content(tx):
-    tx.run("MATCH (n) DETACH DELETE n")
-#TODO load integers with toInteger, doubles with toDouble etc
-def create_customer(tx, PATH):
-    tx.run ("LOAD CSV WITH HEADERS FROM \"" + PATH + "\" AS row " + 
-            "CREATE (c:Customer {customer_id : row.customer_id, " +
-            "x_customer_id : row.x_customer_id, y_customer_id : row.y_customer_id, " +
-            "mean_amount : row.mean_amount, std_amount : row.std_amount, " + 
-            "mean_nb_tx_per_day : row.mean_nb_tx_per_day })")
+IS_CONTENT = "MATCH (n) RETURN true LIMIT 1"
+DROP_CONTENT = "MATCH (n) CALL { WITH n DETACH DELETE n } IN TRANSACTIONS OF 10000 ROWS"
 
-def create_terminal(tx, PATH):
-    tx.run ("LOAD CSV WITH HEADERS FROM \"" + PATH + "\" AS row " + 
-            "CREATE (t:Terminal { terminal_id : row.terminal_id, " +
-            "x_terminal_id : row.x_terminal_id, y_terminal_id : row.y_terminal_id })")
+def load_customers(PATH):
+    return (
+            "USING PERIODIC COMMIT 1000 " +
+            "LOAD CSV WITH HEADERS FROM \"" + PATH + "\" AS row " + 
+            "CREATE (c:Customer {customer_id : toInteger(row.customer_id), " +
+            "x_customer_id : toFloat(row.x_customer_id)," + 
+            "y_customer_id : toFloat(row.y_customer_id), " +
+            "mean_amount : toFloat(row.mean_amount), " + 
+            "std_amount : toFloat(row.std_amount), " + 
+            "mean_nb_tx_per_day : toFloat(row.mean_nb_tx_per_day) })")
 
-def create_transaction(tx, PATH):
-    tx.run (
-            # "USING PERIODIC COMMIT 1000" +
+def load_terminals(PATH):
+    return (
+            "USING PERIODIC COMMIT 1000 " +
+            "LOAD CSV WITH HEADERS FROM \"" + PATH + "\" AS row " + 
+            "CREATE (t:Terminal { terminal_id : toInteger(row.terminal_id), " +
+            "x_terminal_id : toFloat(row.x_terminal_id), " +
+            "y_terminal_id : toFloat(row.y_terminal_id) })")
+
+def load_transactions(PATH):
+    return (
+            "USING PERIODIC COMMIT 1000 " +
             "LOAD CSV WITH HEADERS FROM \"" + PATH + "\" AS row " +  
-            # "WITH row LIMIT 1000 " +
-            "MATCH (c:Customer {customer_id : row.customer_id}) " +
-            ", (t:Terminal {terminal_id : row.terminal_id}) " +
-            "CREATE (c)-[tx:TRANSACTION { transaction_id : row.transaction_id, " +
-            "tx_amount : row.tx_amount, tx_fraud : row.tx_fraud, " +    
-            "tx_datetime : datetime({epochSeconds: toInteger(row.tx_datetime)}) }]->(t) ")
+    #        "WITH row LIMIT 1000 " +
+            "MATCH (c:Customer {customer_id : toInteger(row.customer_id)}), " +
+            "(t:Terminal {terminal_id : toInteger(row.terminal_id)}) " +
+            "CREATE (c)-[tx:TRANSACTION { " + 
+            "transaction_id : toInteger(row.transaction_id), " +
+            "tx_datetime : datetime({epochSeconds: toInteger(row.tx_datetime)}), " +
+            "tx_amount : toFloat(row.tx_amount), " + 
+            "tx_fraud : toFloat(row.tx_fraud) }]->(t) ")
     
 dataset = "1"
 
@@ -36,10 +46,27 @@ from_root = str(pathlib.Path(__file__).parent.resolve())
 file_path = "file://" + from_root + "/datasets/" + dataset + "/"
 
 with driver.session() as session:
-    session.write_transaction(drop_content)
-    session.write_transaction(create_customer, file_path + "customers-" + dataset + ".csv")
-    session.write_transaction(create_terminal, file_path + "terminals-" + dataset + ".csv")
-    session.write_transaction(create_transaction, file_path + "transactions-" + dataset + ".csv")
+    while session.run(IS_CONTENT).value(default=False):
+        session.run(DROP_CONTENT)
+
+    session.run("CREATE INDEX cust_id IF NOT EXISTS FOR (c:Customer) ON (c.customer_id) ")
+    session.run("CREATE INDEX term_id IF NOT EXISTS FOR (t:Terminal) ON (t.terminal_id) ")
+
+    s = time()
+    session.run(load_customers(file_path + "customers-" + dataset + ".csv"))
+    e = time()
+    print("customers time: " + str(e - s) + " seconds")
+
+    s = time()
+    session.run(load_terminals(file_path + "terminals-" + dataset + ".csv"))
+    e = time()
+    print("terminals time: " + str(e - s) + " seconds")
+
+    s = time()
+    session.run(load_transactions(file_path + "transactions-" + dataset + ".csv"))
+    e = time()
+    print("transactions time: " + str(e - s) + " seconds")
+
     print("write transaction " + "failed" if session._state_failed else "completed")
 
 driver.close()
