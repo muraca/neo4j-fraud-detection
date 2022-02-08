@@ -117,7 +117,12 @@ IS_CONTENT = "MATCH (n) RETURN true LIMIT 1"
 DROP_CONTENT = "MATCH (n) CALL { WITH n DETACH DELETE n } IN TRANSACTIONS OF 10000 ROWS"
 ```
 
-Indexes are created using the following 
+Indexes are created using the following queries:
+```
+CUSTOMER_INDEX = "CREATE INDEX cust_id IF NOT EXISTS FOR (c:Customer) ON (c.customer_id) "
+TERMINAL_INDEX = "CREATE INDEX term_id IF NOT EXISTS FOR (t:Terminal) ON (t.terminal_id) "
+TRANSACTION_INDEX = "CREATE INDEX trans_id IF NOT EXISTS FOR ()-[t:TRANSACTION]-() ON (t.transaction_id)"
+```
 
 Then the *Customer* and *Terminal* nodes are created by loading the CSV files on Neo4j using Cypher's constructs.
 ``` python
@@ -218,9 +223,9 @@ ORDER BY c.customer_id, t.tx_datetime.day
     so we use the > operator instead to achieve uniqueness.
     
 
-    b.  Match the co-customer link of degree $k
+    b.  See all the co-customers of *Customer* with id $customer_id, of degree $degree
     ```
-    MATCH (u1:Customer{customer_id : $customer_id})-[:CO_CUSTOMER*$k]-(u2)
+    MATCH (u1:Customer{customer_id : $customer_id})-[:CO_CUSTOMER*$degree]-(u2)
     WHERE u1.customer_id <> u2.customer_id
     RETURN DISTINCT (u2.customer_id)
     ```
@@ -239,16 +244,15 @@ ORDER BY c.customer_id, t.tx_datetime.day
     KINDS = ['high-tech', 'food', 'clothing', 'consumable', 'other']
 
     def extend_transactions():
-        with driver.session() as session:
-            ids = session.run("MATCH ()-[t:TRANSACTION]->() RETURN t.transaction_id")
-            for id in ids:
+        with driver.session() as session:            
+            ids = session.run("MATCH ()-[t:TRANSACTION]->() RETURN t.transaction_id").values()
+            for i in range(0,len(ids)):
                 period_of_the_day = PERIODS[random.randint(0,len(PERIODS)-1)]
                 kind_of_products = KINDS[random.randint(0,len(KINDS)-1)]
-                real_id = id.get("t.transaction_id")
                 session.run("MATCH ()-[t:TRANSACTION {transaction_id : $id}]-() " + 
-                            "SET t += { period_of_the_day : $period_of_the_day, " + 
-                            " kind_of_products : $kind_of_products }",
-                            id=real_id, period_of_the_day=period_of_the_day, kind_of_products=kind_of_products)
+                            "SET t.period_of_the_day = $period_of_the_day, " + 
+                            " t.kind_of_products = $kind_of_products",
+                            id=ids[i], period_of_the_day=period_of_the_day, kind_of_products=kind_of_products)
     ```
 
     b. Add the *buying_friends* link.
@@ -305,4 +309,16 @@ dataset|size|quantity|average loading time
 -------|----|--------|---
  *1*   | a  | 500000 | 33.9s
  *2*   | a  | 1000000| 68.5s
- *4*   | a  | 2000000| 139.6s
+ *4*   | a  | 2000000| 2m 19.6s
+
+We created an index on *Transaction*.*transaction_id*. 
+The purpose of this index is to improve performances while retrieving the *Transactions* by their id during the extension of the *Transaction* relationship.
+The extension time of 1000 *Transactions* without the indexes was of 850 seconds. 
+With the index, 1000 *Transactions* are loaded in just 19.5 seconds.
+
+### **Transaction extension**
+dataset|size|quantity|average extension time
+-------|----|--------|---
+ *1*   | a  | 500000 | 2h 40m
+ *2*   | a  | 1000000| 5h 22m
+ *4*   | a  | 2000000| 10h 31m

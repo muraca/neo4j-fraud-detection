@@ -6,6 +6,7 @@ DROP_CONTENT = "MATCH (n) CALL { WITH n DETACH DELETE n } IN TRANSACTIONS OF 100
 
 CUSTOMER_INDEX = "CREATE INDEX cust_id IF NOT EXISTS FOR (c:Customer) ON (c.customer_id) "
 TERMINAL_INDEX = "CREATE INDEX term_id IF NOT EXISTS FOR (t:Terminal) ON (t.terminal_id) "
+TRANSACTION_INDEX = "CREATE INDEX trans_id IF NOT EXISTS FOR ()-[t:TRANSACTION]-() ON (t.transaction_id)"
 
 def load_customers(PATH):
     return (
@@ -36,7 +37,7 @@ def load_transactions(PATH):
             "transaction_id : toInteger(row.transaction_id), " +
             "tx_datetime : datetime({epochSeconds: toInteger(row.tx_datetime)}), " +
             "tx_amount : toFloat(row.tx_amount), " + 
-            "tx_fraud : toFloat(row.tx_fraud) }]->(t) ")
+            "tx_fraud : toBoolean(row.tx_fraud) }]->(t) ")
     
 dataset = "1"
 
