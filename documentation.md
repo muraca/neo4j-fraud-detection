@@ -220,16 +220,15 @@ ORDER BY c.customer_id, t.tx_datetime.day
 
     b.  Match the co-customer link of degree $k
     ```
-    MATCH (u1)-[:CO_CUSTOMER*$k]-(u2)
-    WHERE u1.customer_id > u2.customer_id
-    RETURN u1.customer_id, u2.customer_id
+    MATCH (u1:Customer{customer_id : $customer_id})-[:CO_CUSTOMER*$k]-(u2)
+    WHERE u1.customer_id <> u2.customer_id
+    RETURN DISTINCT (u2.customer_id)
     ```
     The operator * in the association indicates how deep the recursion should go on the CO_CUSTOMER link.
     The match need to have no direction because of situations like:
     ```
     {id : 5} -> {id : 4} <- {id : 6}
     ```
-    And the operator > is used instead of the <> to avoid duplicate results.
 
 4.  Extend the logical model. See *Logical Model* for more details.
     a.  Extend *Transaction* with random values for period_of_the_day, kind_of_products.

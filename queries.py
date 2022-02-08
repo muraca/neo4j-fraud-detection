@@ -54,20 +54,20 @@ def q2(limit=10000):
             print(r, res_b[r])
 
 
-def q3(degree=2):
+def q3(customer_id=35,degree=2):
     query_3a = ("MATCH (u1:Customer)-[]->(t:Terminal)<-[]-(u2:Customer) " +
                 "WHERE u1.customer_id > u2.customer_id AND NOT ((u1)-[:CO_CUSTOMER]-(u2)) " +
                 "MERGE (u1)-[:CO_CUSTOMER]->(u2)")
 
-    query_3b = ("MATCH (u1)-[:CO_CUSTOMER*$k]-(u2) " +
-                "WHERE u1.customer_id > u2.customer_id " +
-                "RETURN u1.customer_id, u2.customer_id")
+    query_3b = ("MATCH (u1:Customer {customer_id : $customer_id})-[:CO_CUSTOMER*$k]-(u2) " +
+                "WHERE u1.customer_id <> u2.customer_id " +
+                "RETURN DISTINCT(u2.customer_id)")
 
     with driver.session() as session:
         session.run(query_3a)
-        res_b = session.run(query_3b)
+        res_b = session.run(query_3b, customer_id=customer_id, degree=degree).single()
 
-        print(res_b)
+        print("co-customers of " + str(customer_id) + " with degree " + str(degree) + " are " + str(res_b))
 
 def extend_transactions():
     with driver.session() as session:
@@ -109,6 +109,6 @@ def q5():
     
 
 if __name__ == "__main__":
-    q2()
+    q3()
     driver.close()
 
