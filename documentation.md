@@ -239,16 +239,17 @@ ORDER BY c.customer_id, t.tx_datetime.day
     PERIODS = ['morning', 'afternoon', 'evening', 'night']
     KINDS = ['high-tech', 'food', 'clothing', 'consumable', 'other']
 
-    def extend_transactions(session):
-        ids = session.run("MATCH ()-[t:TRANSACTION]->() RETURN t.transaction_id")
-        for id in ids:
-            period_of_the_day = PERIODS[random.randint(0,len(PERIODS)-1)]
-            kind_of_products = KINDS[random.randint(0,len(KINDS)-1)]
-            real_id = id.get("t.transaction_id")
-            session.run("MATCH ()-[t:TRANSACTION {transaction_id : $id}]-() " + 
-                        "SET t += { period_of_the_day : $period_of_the_day, " + 
-                        " kind_of_products : $kind_of_products }",
-                        id=real_id, period_of_the_day=period_of_the_day, kind_of_products=kind_of_products)
+    def extend_transactions():
+        with driver.session() as session:
+            ids = session.run("MATCH ()-[t:TRANSACTION]->() RETURN t.transaction_id")
+            for id in ids:
+                period_of_the_day = PERIODS[random.randint(0,len(PERIODS)-1)]
+                kind_of_products = KINDS[random.randint(0,len(KINDS)-1)]
+                real_id = id.get("t.transaction_id")
+                session.run("MATCH ()-[t:TRANSACTION {transaction_id : $id}]-() " + 
+                            "SET t += { period_of_the_day : $period_of_the_day, " + 
+                            " kind_of_products : $kind_of_products }",
+                            id=real_id, period_of_the_day=period_of_the_day, kind_of_products=kind_of_products)
     ```
 
     b. Add the *buying_friends* link.
@@ -270,7 +271,7 @@ ORDER BY c.customer_id, t.tx_datetime.day
     ```
 
 5.  For each period of the day identifies the number of transactions that occurred in that period,
-    and the *AVERAGE* number of fraudulent transactions __for that month__.
+    and the number of fraudulent transactions.
 
     ```
     MATCH ()-[t:TRANSACTION]->()
@@ -306,5 +307,3 @@ dataset|size|quantity|average loading time
  *1*   | a  | 500000 | 33.9s
  *2*   | a  | 1000000| 68.5s
  *4*   | a  | 2000000| 139.6s
-
-### TODO cambiare metodi di loading nel cap.4
