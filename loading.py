@@ -53,6 +53,7 @@ with driver.session() as session:
 
     session.run(CUSTOMER_INDEX)
     session.run(TERMINAL_INDEX)
+    session.run(TRANSACTION_INDEX)
 
     session.run(load_customers(file_path + "customers-" + dataset + ".csv"))
     session.run(load_terminals(file_path + "terminals-" + dataset + ".csv"))
