@@ -1,3 +1,10 @@
+|**Rosario Galioto [975296]**|**Matteo Muraca [984277]**|
+|-|-|
+NEW GENERATION DATA MODELS AND DBMSS 2021/2022
+
+
+# PROJECT: CREDIT CARD FRAUD DETECTION
+
 # 1. Generation of the datasets
 We have modified the generation scripts in order to fulfill our needs.  
 The file *generator.py* contains the methods for the random generation of the datasets.  
