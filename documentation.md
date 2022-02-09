@@ -299,25 +299,25 @@ The creation of indexes on *Customer*.*customer_id* and *Terminal*.*terminal_id*
 
 ## Timings with indexes
 ### **Customer**
-dataset|size|quantity|average loading time
+dataset|size (MB)|quantity|average loading time
 -------|----|--------|---
- *1*   | a  | 200000 | 7.0s
- *2*   | a  | 400000 | 13.8s
- *4*   | a  | 800000 | 27.3s
+ *1*   | 19.5  | 200000 | 7.0s
+ *2*   | 39.8  | 400000 | 13.8s
+ *4*   | 79.6  | 800000 | 27.3s
 
 ### **Terminal**
-dataset|size|quantity|average loading time
+dataset|size (MB)|quantity|average loading time
 -------|----|--------|---
- *1*   | a  | 200000 | 5.9s
- *2*   | a  | 400000 | 11.6s
- *4*   | a  | 800000 | 23.0s
+ *1*   | 8.8  | 200000 | 5.9s
+ *2*   | 17.6  | 400000 | 11.6s
+ *4*   | 35.4  | 800000 | 23.0s
 
 ### **Transaction**
-dataset|size|quantity|average loading time
+dataset|size (MB)|quantity|average loading time
 -------|----|--------|---
- *1*   | a  | 500000 | 33.9s
- *2*   | a  | 1000000| 68.5s
- *4*   | a  | 2000000| 2m 19.6s
+ *1*   | 21.6  | 500000 | 33.9s
+ *2*   | 43.8  | 1000000| 68.5s
+ *4*   | 89.2  | 2000000| 2m 19.6s
 
 We created an index on *Transaction*.*transaction_id*. 
 The purpose of this index is to improve performances while retrieving the *Transactions* by their id during the extension of the *Transaction* relationship.
@@ -325,10 +325,10 @@ The extension time of 1000 *Transactions* without the indexes was of 850 seconds
 With the index, 1000 *Transactions* are loaded in just 19.5 seconds.
 
 ### **Transaction extension**
-dataset|size|quantity|average extension time
--------|----|--------|---
- *1*   | a  | 500000 | 2h 40m
- *2*   | a  | 1000000| 5h 22m
- *4*   | a  | 2000000| 10h 31m
+dataset|quantity|average extension time
+-------|--------|---
+ *1*   | 500000 | 2h 40m
+ *2*   | 1000000| 5h 22m
+ *4*   | 2000000| 10h 31m
 
- As for the queries, their execution is very fast (1 ~ 10 seconds), thanks also to the use of the various indexes defined above
+- As for the queries, their execution is very fast (1 ~ 10 seconds), thanks also to the use of the various indexes defined above
