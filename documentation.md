@@ -12,7 +12,7 @@ Each *Customer* will be defined by the following properties:
 -   **customer_id**: The customer unique ID
 -   x_customer_id: latitude of the coordinates of the customer's location
 -   y_customer_id: longitude of the coordinates of the customer's location
--   mean_amount : The mena of the transaction amounts for the customer, drawn from a uniform distribution (5,100).
+-   mean_amount : The mean of the transaction amounts for the customer, drawn from a uniform distribution (5,100).
 -   std_amount: The standard deviation of the transaction amounts for the customer, the mean_amount divided by two.
 -   mean_nb_tx_per_day: The average number of transactions per day for the customer, drawn from a uniform distribution (0,4).
 
