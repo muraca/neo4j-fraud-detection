@@ -176,7 +176,7 @@ ORDER BY c.customer_id, t.tx_datetime.day
 
 2.  For each terminal identify the possible fraudulent transactions *occurred in the current month*.  
     The fraudulent transactions are those whose import is higher
-    than 50% of the import of the transactions 
+    than 50% of the average import of the transactions 
     executed on the same terminal in the last month.
 
     For this request, two different Cypher queries are needed.
@@ -323,3 +323,5 @@ dataset|size|quantity|average extension time
  *1*   | a  | 500000 | 2h 40m
  *2*   | a  | 1000000| 5h 22m
  *4*   | a  | 2000000| 10h 31m
+
+ As for the queries, their execution is very fast (1 ~ 10 seconds), thanks also to the use of the various indexes defined above
